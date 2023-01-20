@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:code/Widget/record_page.dart';
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:path_provider/path_provider.dart';
@@ -16,6 +17,9 @@ class _AudioRecorderWidgetState extends State<AudioRecorderWidget> {
   String statusText = "";
   bool isComplete = false;
   late String recordFilePath;
+  String _timer = "00:00:00";
+  var _duration = new Duration(seconds: 0);
+  Timer? _timerObj;
 
   @override
   Widget build(BuildContext context) {
@@ -33,7 +37,7 @@ class _AudioRecorderWidgetState extends State<AudioRecorderWidget> {
                   child: Container(
                     height: 48.0,
                     decoration: BoxDecoration(color: Colors.red.shade300),
-                    child: Center(
+                    child: const Center(
                       child: Text(
                         'start',
                         style: TextStyle(color: Colors.white),
@@ -55,7 +59,7 @@ class _AudioRecorderWidgetState extends State<AudioRecorderWidget> {
                         RecordMp3.instance.status == RecordStatus.PAUSE
                             ? 'resume'
                             : 'pause',
-                        style: TextStyle(color: Colors.white),
+                        style: const TextStyle(color: Colors.white),
                       ),
                     ),
                   ),
@@ -69,7 +73,7 @@ class _AudioRecorderWidgetState extends State<AudioRecorderWidget> {
                   child: Container(
                     height: 48.0,
                     decoration: BoxDecoration(color: Colors.green.shade300),
-                    child: Center(
+                    child: const Center(
                       child: Text(
                         'stop',
                         style: TextStyle(color: Colors.white),
@@ -87,21 +91,24 @@ class _AudioRecorderWidgetState extends State<AudioRecorderWidget> {
             padding: const EdgeInsets.only(top: 20.0),
             child: Text(
               statusText,
-              style: TextStyle(color: Colors.red, fontSize: 20),
+              style: const TextStyle(color: Colors.red, fontSize: 20),
             ),
           ),
+          Text("Timer: $_timer"),
+          Expanded(child: RecordList()),
+
           GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: () {
               play();
             },
             child: Container(
-              margin: EdgeInsets.only(top: 30),
+              margin: const EdgeInsets.only(top: 30),
               alignment: AlignmentDirectional.center,
               width: 100,
               height: 50,
               child: isComplete && recordFilePath != null
-                  ? Text(
+                  ? const Text(
                 "play",
                 style: TextStyle(color: Colors.red, fontSize: 20),
               )
@@ -111,6 +118,22 @@ class _AudioRecorderWidgetState extends State<AudioRecorderWidget> {
         ]),
       ),
     );
+  }
+
+  @override
+  dispose() {
+    cleanTimer();
+    stopRecord();
+    super.dispose();
+    print("dispose");
+  }
+
+  @override
+  deactivate() {
+    cleanTimer();
+    stopRecord();
+    super.deactivate();
+    print("deactivate");
   }
 
   Future<bool> checkPermission() async {
@@ -123,20 +146,36 @@ class _AudioRecorderWidgetState extends State<AudioRecorderWidget> {
     return true;
   }
 
+
+
   void startRecord() async {
+    cleanTimer();
+
     bool hasPermission = await checkPermission();
-    if (hasPermission) {
-      statusText = "Recording...";
-      recordFilePath = await getFilePath();
-      isComplete = false;
-      RecordMp3.instance.start(recordFilePath, (type) {
-        statusText = "Record error--->$type";
-        setState(() {});
-      });
-    } else {
+    if(!hasPermission){
       statusText = "No microphone permission";
+      return;
+    }else if(RecordMp3.instance.status == RecordStatus.RECORDING){
+      statusText = "Recording";
+      return;
     }
-    setState(() {});
+
+    statusText = "Recording...";
+    recordFilePath = await getFilePath();
+    isComplete = false;
+    RecordMp3.instance.start(recordFilePath, (type) {
+      statusText = "Record error--->$type";
+    });
+    _duration = new Duration(seconds: 0);
+    _timerObj = Timer.periodic(const Duration(seconds: 1), (Timer t) => _updateTimer());
+
+  }
+
+  cleanTimer(){
+    if(_timerObj != null){
+      _timerObj!.cancel();
+      _timerObj = null;
+    }
   }
 
   void pauseRecord() {
@@ -145,6 +184,7 @@ class _AudioRecorderWidgetState extends State<AudioRecorderWidget> {
       if (s) {
         statusText = "Recording...";
         setState(() {});
+
       }
     } else {
       bool s = RecordMp3.instance.pause();
@@ -155,12 +195,13 @@ class _AudioRecorderWidgetState extends State<AudioRecorderWidget> {
     }
   }
 
+
   void stopRecord() {
+
     bool s = RecordMp3.instance.stop();
     if (s) {
       statusText = "Record complete";
       isComplete = true;
-      setState(() {});
     }
   }
 
@@ -168,7 +209,6 @@ class _AudioRecorderWidgetState extends State<AudioRecorderWidget> {
     bool s = RecordMp3.instance.resume();
     if (s) {
       statusText = "Recording...";
-      setState(() {});
     }
   }
 
@@ -191,4 +231,14 @@ class _AudioRecorderWidgetState extends State<AudioRecorderWidget> {
     }
     return sdPath + "/test_${i++}.mp3";
   }
+
+  _updateTimer() {
+    if (RecordMp3.instance.status == RecordStatus.RECORDING) {
+      setState(() {
+        _duration = new Duration(seconds: _duration.inSeconds + 1);
+        _timer = _duration.toString().split(".")[0];
+      });
+    }
+  }
+
 }
