@@ -1,7 +1,8 @@
 import 'package:code/Widget/record.dart';
-import 'package:code/Widget/record_page.dart';
 import 'package:flutter/material.dart';
 
+import '../view/record_page.dart';
+import '../view/transcribe_page.dart';
 import 'home.dart';
 
 class MyNavbar extends StatefulWidget {
@@ -14,7 +15,7 @@ class _MyNavbarState extends State<MyNavbar> {
   final List<Widget> _children = [
     HomePage(),
     AudioRecorderWidget(),
-    RecordList()
+    TranscribePage()
   ];
 
   void onTabTapped(int index) {
@@ -30,7 +31,7 @@ class _MyNavbarState extends State<MyNavbar> {
       bottomNavigationBar: BottomNavigationBar(
         onTap: onTabTapped,
         currentIndex: _currentIndex,
-        items: [
+        items: const [
           BottomNavigationBarItem(
               icon: Icon(Icons.home),
               label: 'Home'
@@ -41,7 +42,7 @@ class _MyNavbarState extends State<MyNavbar> {
           ),
           BottomNavigationBarItem(
               icon: Icon(Icons.person),
-              label: 'Profile'
+              label: 'Transcribe'
           ),
         ],
       ),

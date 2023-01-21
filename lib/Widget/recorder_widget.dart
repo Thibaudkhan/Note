@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:record_mp3/record_mp3.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import '../viewModel/audio_recorder_manager.dart';
 import 'record_list_widget.dart';
 
 
@@ -17,18 +18,16 @@ class AudioRecorderWidget extends StatefulWidget {
 class _AudioRecorderWidgetState extends State<AudioRecorderWidget> {
   String statusText = "";
   bool isComplete = false;
+  bool isPlaying = false;
   late String recordFilePath;
   String _timer = "00:00:00";
-  var _duration = new Duration(seconds: 0);
-  Timer? _timerObj;
+  AudioRecorderManager _audioRecorderManager = AudioRecorderManager();
+
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       home: Scaffold(
-        appBar: AppBar(
-          title: const Text('Plugin example app'),
-        ),
         body: Column(children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -46,7 +45,7 @@ class _AudioRecorderWidgetState extends State<AudioRecorderWidget> {
                     ),
                   ),
                   onTap: () async {
-                    startRecord();
+                    _audioRecorderManager.startRecording();
                   },
                 ),
               ),
@@ -65,7 +64,7 @@ class _AudioRecorderWidgetState extends State<AudioRecorderWidget> {
                     ),
                   ),
                   onTap: () {
-                    pauseRecord();
+                    _audioRecorderManager.pauseRecording();
                   },
                 ),
               ),
@@ -82,7 +81,7 @@ class _AudioRecorderWidgetState extends State<AudioRecorderWidget> {
                     ),
                   ),
                   onTap: () {
-                    stopRecord();
+                    _audioRecorderManager.stopRecording();
                   },
                 ),
               ),
@@ -96,12 +95,15 @@ class _AudioRecorderWidgetState extends State<AudioRecorderWidget> {
             ),
           ),
           Text("Timer: $_timer"),
-          Expanded(child: RecordList()),
 
           GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: () {
-              play();
+              if(!isPlaying){
+                _audioRecorderManager.playRecording();
+                isPlaying = true;
+
+              }
             },
             child: Container(
               margin: const EdgeInsets.only(top: 30),
@@ -123,123 +125,21 @@ class _AudioRecorderWidgetState extends State<AudioRecorderWidget> {
 
   @override
   dispose() {
-    cleanTimer();
-    stopRecord();
+    //_audioRecorderManager.audioPlayer.dispose();
+    _audioRecorderManager.stopRecording();
+    //RecordMp3.instance.dispose();
     super.dispose();
+
     print("dispose");
   }
 
   @override
   deactivate() {
-    cleanTimer();
-    stopRecord();
+    //_audioRecorderManager.audioPlayer.dispose();
+    _audioRecorderManager.stopRecording();
     super.deactivate();
     print("deactivate");
   }
 
-  Future<bool> checkPermission() async {
-    if (!await Permission.microphone.isGranted) {
-      PermissionStatus status = await Permission.microphone.request();
-      if (status != PermissionStatus.granted) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-
-
-  void startRecord() async {
-    cleanTimer();
-
-    bool hasPermission = await checkPermission();
-    if(!hasPermission){
-      statusText = "No microphone permission";
-      return;
-    }else if(RecordMp3.instance.status == RecordStatus.RECORDING){
-      statusText = "Recording";
-      return;
-    }
-
-    statusText = "Recording...";
-    recordFilePath = await getFilePath();
-    isComplete = false;
-    RecordMp3.instance.start(recordFilePath, (type) {
-      statusText = "Record error--->$type";
-    });
-    _duration = new Duration(seconds: 0);
-    _timerObj = Timer.periodic(const Duration(seconds: 1), (Timer t) => _updateTimer());
-
-  }
-
-  cleanTimer(){
-    if(_timerObj != null){
-      _timerObj!.cancel();
-      _timerObj = null;
-    }
-  }
-
-  void pauseRecord() {
-    if (RecordMp3.instance.status == RecordStatus.PAUSE) {
-      bool s = RecordMp3.instance.resume();
-      if (s) {
-        statusText = "Recording...";
-        setState(() {});
-
-      }
-    } else {
-      bool s = RecordMp3.instance.pause();
-      if (s) {
-        statusText = "Recording pause...";
-        setState(() {});
-      }
-    }
-  }
-
-
-  void stopRecord() {
-
-    bool s = RecordMp3.instance.stop();
-    if (s) {
-      statusText = "Record complete";
-      isComplete = true;
-    }
-  }
-
-  void resumeRecord() {
-    bool s = RecordMp3.instance.resume();
-    if (s) {
-      statusText = "Recording...";
-    }
-  }
-
-
-  void play() {
-    if (recordFilePath != null && File(recordFilePath).existsSync()) {
-      AudioPlayer audioPlayer = AudioPlayer();
-      audioPlayer.play(recordFilePath, isLocal: true);
-    }
-  }
-
-  int i = 0;
-
-  Future<String> getFilePath() async {
-    Directory storageDirectory = await getApplicationDocumentsDirectory();
-    String sdPath = storageDirectory.path + "/record";
-    var d = Directory(sdPath);
-    if (!d.existsSync()) {
-      d.createSync(recursive: true);
-    }
-    return sdPath + "/test_${i++}.mp3";
-  }
-
-  _updateTimer() {
-    if (RecordMp3.instance.status == RecordStatus.RECORDING) {
-      setState(() {
-        _duration = new Duration(seconds: _duration.inSeconds + 1);
-        _timer = _duration.toString().split(".")[0];
-      });
-    }
-  }
 
 }
